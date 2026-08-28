@@ -44,7 +44,7 @@ Panel {
     root.controller.show()
     Qt.callLater(function() {
       if (root.opened) root.setCenterHoverRevealSuppressed(true)
-      root.scrollToNow()
+      root.scheduleScrollToNow()
     })
     if (tasks.length === 0 || Date.now() - fetchedAt.getTime() > 120000) refresh()
   }
@@ -61,6 +61,10 @@ Panel {
 
   function closeForPopoutSwitch() {
     root.close()
+  }
+
+  onOpenedChanged: {
+    if (root.opened) root.scheduleScrollToNow()
   }
 
   function switchPanel(direction) {
@@ -93,7 +97,7 @@ Panel {
       root.fetchedAt = new Date()
       root.errorMessage = ""
       root.selectedIndex = Math.min(root.selectedIndex, Math.max(0, root.timed.length - 1))
-      if (root.opened) Qt.callLater(root.scrollToNow)
+      root.scheduleScrollToNow()
     } catch (e) {
       root.errorMessage = "Todoist returned an unreadable response"
     }
@@ -133,6 +137,11 @@ Panel {
                                                    timelineScroll.contentHeight - timelineScroll.height))
   }
 
+  function scheduleScrollToNow() {
+    if (!root.opened || root.timed.length === 0) return
+    scrollTimer.restart()
+  }
+
   function moveSelection(delta) {
     if (root.timed.length === 0) return
     root.selectedIndex = Math.max(0, Math.min(root.timed.length - 1, root.selectedIndex + delta))
@@ -151,8 +160,15 @@ Panel {
     precision: SystemClock.Minutes
     onDateChanged: {
       root.now = date
-      if (root.opened) Qt.callLater(root.scrollToNow)
+      root.scheduleScrollToNow()
     }
+  }
+
+  Timer {
+    id: scrollTimer
+    interval: 50
+    repeat: false
+    onTriggered: root.scrollToNow()
   }
 
   Process {
@@ -532,6 +548,8 @@ Panel {
             contentHeight: root.timelineHeight + Style.space(20)
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            onContentHeightChanged: root.scheduleScrollToNow()
+            onHeightChanged: root.scheduleScrollToNow()
 
             Item {
               id: timeline
