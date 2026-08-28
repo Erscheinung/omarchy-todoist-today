@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+config_dir="$config_home/todoist"
+auth_file="$config_dir/omarchy-token"
+
+printf 'Todoist personal API token: ' >&2
+IFS= read -r -s token
+printf '\n' >&2
+
+if [[ ! "$token" =~ ^[A-Za-z0-9_-]{20,}$ ]]; then
+  printf 'That does not look like a Todoist API token. Nothing was changed.\n' >&2
+  exit 1
+fi
+
+install -d -m 700 "$config_dir"
+umask 077
+printf 'Authorization: Bearer %s\n' "$token" > "$auth_file"
+unset token
+chmod 600 "$auth_file"
+
+printf 'Saved %s with mode 600.\n' "$auth_file" >&2
+printf 'Open the widget or middle-click it to refresh.\n' >&2

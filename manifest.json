@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.erscheinung.todoist-today",
+  "name": "Todoist Today",
+  "version": "1.0.0",
+  "author": "Kartikeya Chauhan",
+  "license": "MIT",
+  "homepage": "https://github.com/Erscheinung/omarchy-todoist-today",
+  "description": "A theme-native Todoist day calendar for the Omarchy bar, ordered by due time.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Todoist Today",
+    "description": "Today's Todoist tasks in a time-sorted calendar panel.",
+    "category": "Productivity",
+    "defaultSection": "center",
+    "allowMultiple": false
+  }
+}

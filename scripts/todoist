@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+auth_file="$config_home/todoist/omarchy-token"
+api_root="https://api.todoist.com/api/v1"
+
+fail_json() {
+  jq -cn --arg message "$1" '{error: $message, tasks: []}'
+  exit 1
+}
+
+[[ -r "$auth_file" ]] || fail_json "Todoist token is not configured"
+command -v curl >/dev/null || fail_json "curl is required"
+command -v jq >/dev/null || fail_json "jq is required"
+
+request() {
+  curl -fsS --max-time 15 -H "@$auth_file" "$@"
+}
+
+list_today() {
+  local tasks projects
+  tasks="$(request --get \
+    --data-urlencode 'query=today' \
+    --data-urlencode 'limit=200' \
+    "$api_root/tasks/filter")" || fail_json "Todoist did not return today's tasks"
+
+  projects="$(request --get \
+    --data-urlencode 'limit=200' \
+    "$api_root/projects")" || projects='{"results":[]}'
+
+  jq -cn \
+    --argjson tasks "$tasks" \
+    --argjson projects "$projects" '
+      ($projects.results // [] | map({key: (.id | tostring), value: {name, color}}) | from_entries) as $by_id
+      | {
+          fetched_at: (now | todateiso8601),
+          tasks: (($tasks.results // []) | map({
+            id,
+            content,
+            description,
+            priority,
+            day_order,
+            project_id,
+            project: ($by_id[(.project_id | tostring)].name // "Inbox"),
+            project_color: ($by_id[(.project_id | tostring)].color // "charcoal"),
+            labels,
+            duration,
+            due,
+            url: ("https://todoist.com/app/task/" + (.id | tostring))
+          }))
+        }'
+}
+
+case "${1:-list}" in
+  list)
+    list_today
+    ;;
+  complete)
+    task_id="${2:-}"
+    [[ "$task_id" =~ ^[A-Za-z0-9_-]+$ ]] || fail_json "Invalid task id"
+    request -X POST "$api_root/tasks/$task_id/close" >/dev/null \
+      || fail_json "Todoist could not complete the task"
+    list_today
+    ;;
+  *)
+    fail_json "Unknown Todoist helper command"
+    ;;
+esac
