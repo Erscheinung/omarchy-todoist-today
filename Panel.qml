@@ -138,7 +138,7 @@ Panel {
   }
 
   function scheduleScrollToNow() {
-    if (!root.opened || root.timed.length === 0) return
+    if (!root.opened) return
     scrollTimer.restart()
   }
 
@@ -166,7 +166,7 @@ Panel {
 
   Timer {
     id: scrollTimer
-    interval: 50
+    interval: 250
     repeat: false
     onTriggered: root.scrollToNow()
   }
@@ -233,6 +233,7 @@ Panel {
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(560))
     contentHeight: panel.fittedContentHeight(Style.space(740))
+    onOpenChanged: if (open) root.scheduleScrollToNow()
 
     PanelKeyCatcher {
       id: keyCatcher
