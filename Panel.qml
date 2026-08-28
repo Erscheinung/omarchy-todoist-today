@@ -23,6 +23,7 @@ Panel {
   property bool savingToken: false
   property date fetchedAt: new Date(0)
   property int selectedIndex: 0
+  property int scrollAttempts: 0
   property date now: new Date()
 
   readonly property int taskCount: tasks.length
@@ -138,7 +139,7 @@ Panel {
   }
 
   function scheduleScrollToNow() {
-    if (!root.opened) return
+    root.scrollAttempts = 0
     scrollTimer.restart()
   }
 
@@ -166,9 +167,14 @@ Panel {
 
   Timer {
     id: scrollTimer
-    interval: 250
-    repeat: false
-    onTriggered: root.scrollToNow()
+    interval: 100
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      root.scrollToNow()
+      root.scrollAttempts++
+      if (root.scrollAttempts >= 10) scrollTimer.stop()
+    }
   }
 
   Process {
