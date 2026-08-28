@@ -81,11 +81,38 @@ BarWidget {
     id: button
     bar: root.bar
     fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-    text: "󰄬 " + root.taskCount + (root.barTask ? " · " + root.truncatedTask(root.barTask.content) : "")
+    labelVisible: false
+    hasVisualContent: true
+    fixedWidth: barContent.implicitWidth + Style.space(17)
     active: root.hasError
     tooltipText: root.hasError
       ? "Todoist could not refresh · middle-click to retry"
       : (root.barTask ? root.barTask.content : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today"))
+
+    Row {
+      id: barContent
+      anchors.centerIn: parent
+      spacing: Style.space(6)
+
+      Image {
+        width: Style.space(16)
+        height: width
+        anchors.verticalCenter: parent.verticalCenter
+        source: Qt.resolvedUrl("assets/todoist.png")
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        mipmap: true
+      }
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.taskCount + (root.barTask ? " · " + root.truncatedTask(root.barTask.content) : "")
+        color: button.active ? button.activeColor : button.foreground
+        font.family: button.fontFamily
+        font.pixelSize: button.fontSize
+        renderType: Text.NativeRendering
+      }
+    }
 
     onPressed: function(b) {
       if (b === Qt.MiddleButton) root.refresh()
