@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Todoist.js" as Todoist
+import "QuickAdd.js" as QuickAdd
 
 Panel {
   id: root
@@ -33,6 +34,7 @@ Panel {
   property var quickAddSuggestions: []
   property int quickAddSuggestionIndex: 0
   property int quickAddFragmentStart: 0
+  property var quickAddHighlights: []
   property date now: new Date()
 
   readonly property int taskCount: tasks.length
@@ -182,11 +184,16 @@ Panel {
 
   function updateQuickAddSuggestions() {
     var cursor = quickAddField.cursorPosition
-    var before = String(quickAddField.text || "").slice(0, cursor)
+    var fullText = String(quickAddField.text || "")
+    root.quickAddHighlights = QuickAdd.highlights(fullText)
+    var before = fullText.slice(0, cursor)
     var match = before.match(/(?:^|\s)([#p][^\s]*)$/i)
     var output = []
     if (!match) {
-      root.quickAddSuggestions = output
+      var natural = QuickAdd.completions(fullText, cursor)
+      root.quickAddFragmentStart = natural.start
+      root.quickAddSuggestions = natural.items
+      root.quickAddSuggestionIndex = 0
       return
     }
     var fragment = match[1]
@@ -230,7 +237,7 @@ Panel {
     var text = String(quickAddField.text || "")
     var value = root.quickAddSuggestions[target].value
     var suffix = text.slice(cursor)
-    var spacer = suffix.charAt(0) === " " ? "" : " "
+    var spacer = suffix.charAt(0) === " " || value.charAt(value.length - 1) === " " ? "" : " "
     quickAddField.text = text.slice(0, root.quickAddFragmentStart) + value + spacer + suffix
     quickAddField.cursorPosition = root.quickAddFragmentStart + value.length + spacer.length
     root.quickAddSuggestions = []
@@ -566,7 +573,7 @@ Panel {
                 id: quickAddField
                 width: parent.width - quickAddButton.width - parent.spacing
                 enabled: !root.quickAdding
-                placeholderText: "Task name tomorrow p1 #Project"
+                placeholderText: "Task name tom 14:30 for 15m p1 #Project"
                 foreground: root.foreground
                 accent: root.accent
                 font.family: root.fontFamily
@@ -587,6 +594,26 @@ Panel {
                   } else if (event.key === Qt.Key_Escape && root.quickAddSuggestions.length > 0) {
                     root.quickAddSuggestions = []
                     event.accepted = true
+                  }
+                }
+
+                Repeater {
+                  model: root.quickAddHighlights
+
+                  Rectangle {
+                    required property var modelData
+                    readonly property rect startRect: quickAddField.positionToRectangle(modelData.start)
+                    readonly property rect endRect: quickAddField.positionToRectangle(modelData.end)
+                    x: startRect.x
+                    y: quickAddField.height - Style.space(5)
+                    width: Math.max(2, endRect.x - startRect.x)
+                    height: Style.space(2)
+                    radius: height / 2
+                    color: modelData.kind === "priority" ? root.urgent
+                      : modelData.kind === "project" ? root.accent
+                      : modelData.kind === "duration" ? Qt.lighter(root.accent, 1.35)
+                      : Qt.lighter(root.accent, 1.65)
+                    opacity: 0.95
                   }
                 }
               }
