@@ -100,8 +100,8 @@ function calendarBounds(tasks, currentHour) {
     latest = Math.max(latest, start + durationMinutes(timed[i]))
   }
   return {
-    startHour: Math.max(0, Math.min(7, nowHour, Math.floor(earliest / 60))),
-    endHour: Math.min(24, Math.max(21, nowHour + 1, Math.ceil(latest / 60)))
+    startHour: Math.max(0, Math.min(7, nowHour, Math.floor(earliest / 60) - 1)),
+    endHour: Math.max(21, nowHour + 1, Math.ceil(latest / 60) + 1)
   }
 }
 
@@ -125,7 +125,7 @@ function layout(tasks, startHour) {
     var task = timed[i]
     var date = dueDate(task)
     var start = minuteOfDay(date)
-    var duration = Math.max(20, Math.min(240, durationMinutes(task)))
+    var duration = Math.max(20, durationMinutes(task))
     var end = start + duration
 
     if (cluster.length > 0 && start >= clusterEnd) finishCluster()

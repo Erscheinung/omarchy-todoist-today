@@ -577,7 +577,7 @@ Panel {
 
                   Text {
                     width: Style.space(52)
-                    text: String(parent.hour).padStart(2, "0") + ":00"
+                    text: String(parent.hour % 24).padStart(2, "0") + ":00"
                     color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
