@@ -82,6 +82,19 @@ function timedTasks(tasks) {
   return sortTasks(tasks).filter(function(task) { return dueDate(task) !== null })
 }
 
+function currentOrNextTask(tasks, now) {
+  var timed = timedTasks(tasks)
+  var nowMs = now && typeof now.getTime === "function" ? now.getTime() : Date.now()
+  var next = null
+  for (var i = 0; i < timed.length; i++) {
+    var start = dueDate(timed[i]).getTime()
+    var end = start + durationMinutes(timed[i]) * 60000
+    if (start <= nowMs && nowMs < end) return timed[i]
+    if (start > nowMs && next === null) next = timed[i]
+  }
+  return next
+}
+
 function calendarBounds(tasks, currentHour) {
   var nowHour = Math.max(0, Math.min(23, Number(currentHour) || 0))
   var timed = timedTasks(tasks)

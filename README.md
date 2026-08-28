@@ -26,13 +26,21 @@ For terminal-only setup, run:
 ~/.config/omarchy/plugins/io.github.erscheinung.todoist-today/scripts/configure-token
 ```
 
-Runtime dependencies are `curl` and `jq`, both included with Omarchy.
+Calendar dependencies are `curl` and `jq`, both included with Omarchy. Quick
+Add uses Todoist's official CLI:
+
+```bash
+npm install -g @doist/todoist-cli
+td auth login
+```
 
 ## Use
 
 - Left-click the bar count to toggle the calendar.
 - Middle-click refreshes; right-click opens Todoist Today.
 - Click a task to open it, or its circle to complete it.
+- Click `+` in the panel to add a task with Todoist Quick Add syntax through
+  the official `td` CLI. Task text is sent to the helper over stdin.
 - Use `j`/`k` and Enter in the panel, or `r` (refresh), `n` (now), `o` (open), and Escape.
 
 The panel refreshes every five minutes and when opened after two minutes of
@@ -49,9 +57,19 @@ too, delete `~/.config/todoist/omarchy-token`.
 
 ## Privacy and permissions
 
-This plugin makes HTTPS requests only to `api.todoist.com`. It reads today's
-active tasks and project names, and sends a close request only when you click a
-task's completion circle. Task contents stay in memory and are not cached.
+The calendar helper makes HTTPS requests only to `api.todoist.com`. Quick Add
+runs the official `td` CLI, which manages its own OAuth credential. The plugin
+reads today's active tasks and project names, and sends a close request only
+when you click a task's completion circle. Task contents stay in memory and
+are not cached.
+
+## Acknowledgements
+
+The current/next task label is inspired by
+[Gardy Armand's omarchy-todoist](https://github.com/xak47d/omarchy-todoist).
+The secure `td` Quick Add bridge is adapted from
+[David Ojeda Lopez's omarchy-todoist](https://github.com/davidojedalopez/omarchy-todoist).
+Both are MIT-licensed; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Development
 
@@ -59,4 +77,5 @@ task's completion circle. Task contents stay in memory and are not cached.
 omarchy plugin validate .
 qmllint -I /usr/share/omarchy/shell BarWidget.qml Panel.qml
 bash -n scripts/todoist scripts/configure-token
+python -m py_compile scripts/quick-add
 ```

@@ -24,6 +24,9 @@ Panel {
   property date fetchedAt: new Date(0)
   property int selectedIndex: 0
   property int scrollAttempts: 0
+  property bool quickAddOpen: false
+  property bool quickAdding: false
+  property string quickAddError: ""
   property date now: new Date()
 
   readonly property int taskCount: tasks.length
@@ -32,6 +35,7 @@ Panel {
   readonly property var allDay: Todoist.allDayTasks(tasks)
   readonly property var bounds: Todoist.calendarBounds(tasks, now.getHours())
   readonly property var timed: Todoist.layout(tasks, bounds.startHour)
+  readonly property var barTask: Todoist.currentOrNextTask(tasks, now)
   readonly property int hourHeight: Style.space(68)
   readonly property int timelineHeight: (bounds.endHour - bounds.startHour) * hourHeight
   readonly property int hourCount: bounds.endHour - bounds.startHour + 1
@@ -52,6 +56,8 @@ Panel {
 
   function close() {
     setCenterHoverRevealSuppressed(false)
+    root.quickAddOpen = false
+    root.quickAddError = ""
     root.controller.hide()
   }
 
@@ -131,6 +137,37 @@ Panel {
     openTask("https://todoist.com/app/today")
   }
 
+  function toggleQuickAdd() {
+    root.quickAddOpen = !root.quickAddOpen
+    root.quickAddError = ""
+    if (root.quickAddOpen) Qt.callLater(function() { quickAddField.forceActiveFocus() })
+  }
+
+  function addTask() {
+    var text = String(quickAddField.text || "").trim()
+    if (text === "" || root.quickAdding) return
+    root.quickAdding = true
+    root.quickAddError = ""
+    quickAddProcess.pendingText = text
+    quickAddProcess.command = [root.helperPath.replace(/todoist$/, "quick-add")]
+    quickAddProcess.running = true
+  }
+
+  function acceptQuickAdd(raw) {
+    try {
+      var payload = JSON.parse(String(raw || ""))
+      if (payload.ok !== true) {
+        root.quickAddError = String(payload.message || "Could not add task")
+        return
+      }
+      quickAddField.text = ""
+      root.quickAddOpen = false
+      root.refresh()
+    } catch (e) {
+      root.quickAddError = "Could not read td response"
+    }
+  }
+
   function scrollToNow() {
     var currentHour = root.now.getHours()
     var target = (currentHour - root.bounds.startHour) * root.hourHeight
@@ -206,6 +243,25 @@ Panel {
   Process { id: openProcess }
 
   Process {
+    id: quickAddProcess
+    property string pendingText: ""
+    stdinEnabled: true
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.acceptQuickAdd(text)
+    }
+    stderr: StdioCollector { waitForEnd: true }
+    onStarted: {
+      write(pendingText + "\n")
+      pendingText = ""
+    }
+    onExited: function(code) {
+      root.quickAdding = false
+      if (code !== 0 && root.quickAddError === "") root.quickAddError = "td could not add the task"
+    }
+  }
+
+  Process {
     id: setupProcess
     stdinEnabled: true
     stdout: StdioCollector { waitForEnd: true }
@@ -244,7 +300,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: tokenField.activeFocus
+      blocked: tokenField.activeFocus || quickAddField.activeFocus
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveSelection(dy)
       }
@@ -329,6 +385,31 @@ Panel {
               width: Style.space(32)
               height: width
               radius: width / 2
+              color: addMouse.containsMouse || root.quickAddOpen
+                ? Style.hoverFillFor(root.foreground, root.accent, root.urgent)
+                : "transparent"
+
+              Text {
+                anchors.centerIn: parent
+                text: "+"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.title
+              }
+
+              MouseArea {
+                id: addMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.toggleQuickAdd()
+              }
+            }
+
+            Rectangle {
+              width: Style.space(32)
+              height: width
+              radius: width / 2
               color: refreshMouse.containsMouse
                 ? Style.hoverFillFor(root.foreground, root.accent, root.urgent)
                 : "transparent"
@@ -348,6 +429,62 @@ Panel {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.refresh()
               }
+            }
+          }
+        }
+
+        Rectangle {
+          visible: root.quickAddOpen
+          width: parent.width
+          height: quickAddColumn.implicitHeight + Style.space(18)
+          radius: Style.cornerRadius
+          color: Style.normalFillFor(root.foreground, root.accent, root.urgent)
+          border.width: Style.normalBorderWidth
+          border.color: root.quickAddError === "" ? root.accent : root.urgent
+
+          Column {
+            id: quickAddColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Style.space(9)
+            spacing: Style.space(6)
+
+            Row {
+              width: parent.width
+              spacing: Style.space(8)
+
+              TextField {
+                id: quickAddField
+                width: parent.width - quickAddButton.width - parent.spacing
+                enabled: !root.quickAdding
+                placeholderText: "Task name tomorrow p1 #Project"
+                foreground: root.foreground
+                accent: root.accent
+                font.family: root.fontFamily
+                onAccepted: root.addTask()
+              }
+
+              Button {
+                id: quickAddButton
+                text: root.quickAdding ? "ADDING…" : "ADD"
+                enabled: !root.quickAdding && quickAddField.text.trim().length > 0
+                bordered: true
+                foreground: root.foreground
+                accent: root.accent
+                fontFamily: root.fontFamily
+                onClicked: root.addTask()
+              }
+            }
+
+            Text {
+              visible: root.quickAddError !== ""
+              width: parent.width
+              text: root.quickAddError
+              color: root.urgent
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.Wrap
             }
           }
         }

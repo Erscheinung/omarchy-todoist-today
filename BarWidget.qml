@@ -13,6 +13,7 @@ BarWidget {
     ? panelLoader.item.popoutSwitchClosing === true
     : false
   readonly property int taskCount: panelLoader.item ? panelLoader.item.taskCount : 0
+  readonly property var barTask: panelLoader.item ? panelLoader.item.barTask : null
   readonly property bool hasError: panelLoader.item ? panelLoader.item.hasError : false
 
   function injectPanel() {
@@ -71,35 +72,20 @@ BarWidget {
     function toggle(): void { root.toggle() }
   }
 
-  BarIconButton {
-    id: button
-    anchors.fill: parent
-    bar: root.bar
-    active: root.hasError
-    iconComponent: Component {
-      Item {
-        Image {
-          anchors.fill: parent
-          source: Qt.resolvedUrl("assets/todoist.png")
-          fillMode: Image.PreserveAspectFit
-          smooth: true
-          mipmap: true
-        }
+  function truncatedTask(text) {
+    var value = String(text || "")
+    return value.length > 24 ? value.slice(0, 23) + "…" : value
+  }
 
-        Text {
-          visible: root.hasError
-          anchors.right: parent.right
-          anchors.bottom: parent.bottom
-          text: "!"
-          color: Color.urgent
-          font.bold: true
-          font.pixelSize: Math.max(8, Math.round(button.fontSize * 0.55))
-        }
-      }
-    }
+  WidgetButton {
+    id: button
+    bar: root.bar
+    fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+    text: "󰄬 " + root.taskCount + (root.barTask ? " · " + root.truncatedTask(root.barTask.content) : "")
+    active: root.hasError
     tooltipText: root.hasError
       ? "Todoist could not refresh · middle-click to retry"
-      : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today")
+      : (root.barTask ? root.barTask.content : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today"))
 
     onPressed: function(b) {
       if (b === Qt.MiddleButton) root.refresh()
