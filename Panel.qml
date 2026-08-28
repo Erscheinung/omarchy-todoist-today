@@ -20,12 +20,14 @@ Panel {
   property var tasks: []
   property bool loading: false
   property string errorMessage: ""
+  property bool savingToken: false
   property date fetchedAt: new Date(0)
   property int selectedIndex: 0
   property date now: new Date()
 
   readonly property int taskCount: tasks.length
   readonly property bool hasError: errorMessage !== ""
+  readonly property bool needsToken: errorMessage === "Todoist token is not configured"
   readonly property var allDay: Todoist.allDayTasks(tasks)
   readonly property var bounds: Todoist.calendarBounds(tasks)
   readonly property var timed: Todoist.layout(tasks, bounds.startHour)
@@ -103,6 +105,15 @@ Panel {
     completeProcess.running = true
   }
 
+  function saveToken() {
+    var token = String(tokenField.text || "").trim()
+    if (token.length < 20 || setupProcess.running) return
+    root.savingToken = true
+    root.errorMessage = ""
+    setupProcess.command = [Qt.resolvedUrl("scripts/configure-token").toString().replace("file://", "")]
+    setupProcess.running = true
+  }
+
   function openTask(url) {
     if (!url) return
     openProcess.command = ["xdg-open", String(url)]
@@ -167,6 +178,22 @@ Panel {
 
   Process { id: openProcess }
 
+  Process {
+    id: setupProcess
+    stdinEnabled: true
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onStarted: {
+      setupProcess.write(tokenField.text + "\n")
+      tokenField.text = ""
+    }
+    onExited: function(code) {
+      root.savingToken = false
+      if (code === 0) root.refresh()
+      else root.errorMessage = "Could not save the Todoist token"
+    }
+  }
+
   Timer {
     interval: 5 * 60 * 1000
     running: true
@@ -189,6 +216,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: tokenField.activeFocus
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveSelection(dy)
       }
@@ -299,33 +327,79 @@ Panel {
         Rectangle {
           visible: root.hasError
           width: parent.width
-          height: errorRow.implicitHeight + Style.space(18)
+          height: errorContent.implicitHeight + Style.space(18)
           radius: Style.cornerRadius
           color: Style.normalFillFor(root.urgent, root.urgent, root.urgent)
           border.width: Style.normalBorderWidth
           border.color: root.urgent
 
-          Row {
-            id: errorRow
+          Column {
+            id: errorContent
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             anchors.margins: Style.space(10)
             spacing: Style.space(8)
 
-            Text {
-              text: "󰅚"
-              color: root.urgent
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+            Row {
+              width: parent.width
+              spacing: Style.space(8)
+
+              Text {
+                text: root.needsToken ? "󰌆" : "󰅚"
+                color: root.needsToken ? root.accent : root.urgent
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+              }
+              Text {
+                width: parent.width - Style.space(28)
+                text: root.needsToken ? "CONNECT TODOIST" : root.errorMessage
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                font.bold: root.needsToken
+                font.letterSpacing: root.needsToken ? 0.8 : 0
+                wrapMode: Text.Wrap
+              }
             }
+
             Text {
-              width: parent.width - Style.space(28)
-              text: root.errorMessage
-              color: root.foreground
+              visible: root.needsToken
+              width: parent.width
+              text: "Paste your personal API token. It stays on this computer."
+              color: root.dim
               font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: Style.font.caption
               wrapMode: Text.Wrap
+            }
+
+            Row {
+              visible: root.needsToken
+              width: parent.width
+              spacing: Style.space(8)
+
+              TextField {
+                id: tokenField
+                width: parent.width - connectButton.width - parent.spacing
+                enabled: !root.savingToken
+                password: true
+                placeholderText: "Todoist API token"
+                foreground: root.foreground
+                accent: root.accent
+                font.family: root.fontFamily
+                onAccepted: root.saveToken()
+              }
+
+              Button {
+                id: connectButton
+                text: root.savingToken ? "CONNECTING…" : "CONNECT"
+                enabled: !root.savingToken && tokenField.text.trim().length >= 20
+                bordered: true
+                foreground: root.foreground
+                accent: root.accent
+                fontFamily: root.fontFamily
+                onClicked: root.saveToken()
+              }
             }
           }
         }

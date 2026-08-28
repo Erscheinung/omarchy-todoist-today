@@ -4,17 +4,27 @@ A theme-native Todoist day calendar for the Omarchy bar. It puts date-only
 tasks in an all-day strip, lays timed tasks onto a day rail, resolves overlaps
 into lanes, and follows the active Omarchy theme.
 
+![Todoist Today calendar preview](preview.png)
+
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/Erscheinung/omarchy-todoist-today.git --enable --yes
-~/.config/omarchy/plugins/io.github.erscheinung.todoist-today/scripts/configure-token
+omarchy plugin add https://github.com/Erscheinung/omarchy-todoist-today.git --enable
 ```
 
-Paste a [Todoist personal API token](https://todoist.com/app/settings/integrations/developer)
-when prompted. The setup command stores it in `~/.config/todoist/omarchy-token`
-with mode `600`; it is never written inside the plugin checkout or placed in a
-process argument.
+## Connect Todoist
+
+Open the new bar widget and paste a
+[Todoist personal API token](https://todoist.com/app/settings/integrations/developer)
+into its setup card. The token is passed to the local setup helper over stdin
+and stored in `~/.config/todoist/omarchy-token` with mode `600`; it is never
+written inside the plugin checkout or placed in a process argument.
+
+For terminal-only setup, run:
+
+```bash
+~/.config/omarchy/plugins/io.github.erscheinung.todoist-today/scripts/configure-token
+```
 
 Runtime dependencies are `curl` and `jq`, both included with Omarchy.
 
