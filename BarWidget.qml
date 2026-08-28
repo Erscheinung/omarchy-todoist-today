@@ -71,12 +71,32 @@ BarWidget {
     function toggle(): void { root.toggle() }
   }
 
-  WidgetButton {
+  BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.hasError ? "󰄬 !" : "󰄬 " + root.taskCount
     active: root.hasError
+    iconComponent: Component {
+      Item {
+        Image {
+          anchors.fill: parent
+          source: Qt.resolvedUrl("assets/todoist.png")
+          fillMode: Image.PreserveAspectFit
+          smooth: true
+          mipmap: true
+        }
+
+        Text {
+          visible: root.hasError
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          text: "!"
+          color: Color.urgent
+          font.bold: true
+          font.pixelSize: Math.max(8, Math.round(button.fontSize * 0.55))
+        }
+      }
+    }
     tooltipText: root.hasError
       ? "Todoist could not refresh · middle-click to retry"
       : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today")
