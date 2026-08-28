@@ -44,6 +44,7 @@ Panel {
     root.controller.show()
     Qt.callLater(function() {
       if (root.opened) root.setCenterHoverRevealSuppressed(true)
+      root.scrollToNow()
     })
     if (tasks.length === 0 || Date.now() - fetchedAt.getTime() > 120000) refresh()
   }
@@ -92,6 +93,7 @@ Panel {
       root.fetchedAt = new Date()
       root.errorMessage = ""
       root.selectedIndex = Math.min(root.selectedIndex, Math.max(0, root.timed.length - 1))
+      if (root.opened) Qt.callLater(root.scrollToNow)
     } catch (e) {
       root.errorMessage = "Todoist returned an unreadable response"
     }
@@ -125,9 +127,9 @@ Panel {
   }
 
   function scrollToNow() {
-    var minute = root.now.getHours() * 60 + root.now.getMinutes()
-    var target = (minute - root.bounds.startHour * 60) / 60 * root.hourHeight
-    timelineScroll.contentY = Math.max(0, Math.min(target - timelineScroll.height * 0.34,
+    var currentHour = root.now.getHours()
+    var target = (currentHour - root.bounds.startHour) * root.hourHeight
+    timelineScroll.contentY = Math.max(0, Math.min(target,
                                                    timelineScroll.contentHeight - timelineScroll.height))
   }
 
@@ -147,7 +149,10 @@ Panel {
   SystemClock {
     id: clock
     precision: SystemClock.Minutes
-    onDateChanged: root.now = date
+    onDateChanged: {
+      root.now = date
+      if (root.opened) Qt.callLater(root.scrollToNow)
+    }
   }
 
   Process {
