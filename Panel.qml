@@ -27,6 +27,12 @@ Panel {
   property bool quickAddOpen: false
   property bool quickAdding: false
   property string quickAddError: ""
+  property var quickAddProjects: []
+  property bool quickAddProjectsLoaded: false
+  property bool quickAddProjectsLoading: false
+  property var quickAddSuggestions: []
+  property int quickAddSuggestionIndex: 0
+  property int quickAddFragmentStart: 0
   property date now: new Date()
 
   readonly property int taskCount: tasks.length
@@ -140,7 +146,95 @@ Panel {
   function toggleQuickAdd() {
     root.quickAddOpen = !root.quickAddOpen
     root.quickAddError = ""
-    if (root.quickAddOpen) Qt.callLater(function() { quickAddField.forceActiveFocus() })
+    if (root.quickAddOpen) {
+      root.loadQuickAddProjects()
+      Qt.callLater(function() { quickAddField.forceActiveFocus() })
+    } else {
+      root.quickAddSuggestions = []
+    }
+  }
+
+  function quickAddHelperPath() {
+    return root.helperPath.replace(/todoist$/, "quick-add")
+  }
+
+  function loadQuickAddProjects() {
+    if (root.quickAddProjectsLoaded || root.quickAddProjectsLoading) return
+    root.quickAddProjectsLoading = true
+    quickAddProjectsProcess.command = [root.quickAddHelperPath(), "projects"]
+    quickAddProjectsProcess.running = true
+  }
+
+  function acceptQuickAddProjects(raw) {
+    try {
+      var payload = JSON.parse(String(raw || ""))
+      if (payload.ok !== true || !Array.isArray(payload.projects)) {
+        root.quickAddError = String(payload.message || "Could not load projects")
+        return
+      }
+      root.quickAddProjects = payload.projects
+      root.quickAddProjectsLoaded = true
+      root.updateQuickAddSuggestions()
+    } catch (e) {
+      root.quickAddError = "Could not read td projects"
+    }
+  }
+
+  function updateQuickAddSuggestions() {
+    var cursor = quickAddField.cursorPosition
+    var before = String(quickAddField.text || "").slice(0, cursor)
+    var match = before.match(/(?:^|\s)([#p][^\s]*)$/i)
+    var output = []
+    if (!match) {
+      root.quickAddSuggestions = output
+      return
+    }
+    var fragment = match[1]
+    root.quickAddFragmentStart = cursor - fragment.length
+    var lower = fragment.toLowerCase()
+    if (/^p[1-4]?$/.test(lower)) {
+      var priorities = [
+        { value: "p1", label: "p1  Urgent" },
+        { value: "p2", label: "p2  High" },
+        { value: "p3", label: "p3  Medium" },
+        { value: "p4", label: "p4  Normal" }
+      ]
+      for (var p = 0; p < priorities.length; p++)
+        if (priorities[p].value.indexOf(lower) === 0) output.push(priorities[p])
+    } else if (fragment.charAt(0) === "#") {
+      var query = fragment.slice(1).toLowerCase()
+      for (var i = 0; i < root.quickAddProjects.length && output.length < 8; i++) {
+        var name = String(root.quickAddProjects[i])
+        if (query === "" || name.toLowerCase().indexOf(query) >= 0)
+          output.push({
+            value: "#" + name.replace(/\\/g, "\\\\").replace(/\s/g, "\\ "),
+            label: "#" + name
+          })
+      }
+    }
+    root.quickAddSuggestions = output
+    root.quickAddSuggestionIndex = 0
+  }
+
+  function moveQuickAddSuggestion(delta) {
+    if (root.quickAddSuggestions.length === 0) return false
+    root.quickAddSuggestionIndex = (root.quickAddSuggestionIndex + delta
+      + root.quickAddSuggestions.length) % root.quickAddSuggestions.length
+    return true
+  }
+
+  function acceptQuickAddSuggestion(index) {
+    var target = index === undefined ? root.quickAddSuggestionIndex : Number(index)
+    if (target < 0 || target >= root.quickAddSuggestions.length) return false
+    var cursor = quickAddField.cursorPosition
+    var text = String(quickAddField.text || "")
+    var value = root.quickAddSuggestions[target].value
+    var suffix = text.slice(cursor)
+    var spacer = suffix.charAt(0) === " " ? "" : " "
+    quickAddField.text = text.slice(0, root.quickAddFragmentStart) + value + spacer + suffix
+    quickAddField.cursorPosition = root.quickAddFragmentStart + value.length + spacer.length
+    root.quickAddSuggestions = []
+    return true
   }
 
   function addTask() {
@@ -149,7 +243,7 @@ Panel {
     root.quickAdding = true
     root.quickAddError = ""
     quickAddProcess.pendingText = text
-    quickAddProcess.command = [root.helperPath.replace(/todoist$/, "quick-add")]
+    quickAddProcess.command = [root.quickAddHelperPath(), "add"]
     quickAddProcess.running = true
   }
 
@@ -258,6 +352,20 @@ Panel {
     onExited: function(code) {
       root.quickAdding = false
       if (code !== 0 && root.quickAddError === "") root.quickAddError = "td could not add the task"
+    }
+  }
+
+  Process {
+    id: quickAddProjectsProcess
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.acceptQuickAddProjects(text)
+    }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(code) {
+      root.quickAddProjectsLoading = false
+      if (code !== 0 && !root.quickAddProjectsLoaded && root.quickAddError === "")
+        root.quickAddError = "td could not load projects"
     }
   }
 
@@ -462,7 +570,25 @@ Panel {
                 foreground: root.foreground
                 accent: root.accent
                 font.family: root.fontFamily
+                onTextChanged: root.updateQuickAddSuggestions()
+                onCursorPositionChanged: root.updateQuickAddSuggestions()
                 onAccepted: root.addTask()
+
+                Keys.onPressed: function(event) {
+                  if (event.key === Qt.Key_Up && root.moveQuickAddSuggestion(-1)) {
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Down && root.moveQuickAddSuggestion(1)) {
+                    event.accepted = true
+                  } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Return
+                              || event.key === Qt.Key_Enter)
+                             && root.quickAddSuggestions.length > 0) {
+                    root.acceptQuickAddSuggestion()
+                    event.accepted = true
+                  } else if (event.key === Qt.Key_Escape && root.quickAddSuggestions.length > 0) {
+                    root.quickAddSuggestions = []
+                    event.accepted = true
+                  }
+                }
               }
 
               Button {
@@ -475,6 +601,56 @@ Panel {
                 fontFamily: root.fontFamily
                 onClicked: root.addTask()
               }
+            }
+
+            Column {
+              visible: root.quickAddSuggestions.length > 0
+              width: parent.width
+              spacing: Style.space(2)
+
+              Repeater {
+                model: root.quickAddSuggestions
+
+                Rectangle {
+                  required property var modelData
+                  required property int index
+                  width: parent.width
+                  height: Style.space(30)
+                  radius: Style.cornerRadius
+                  color: index === root.quickAddSuggestionIndex || suggestionMouse.containsMouse
+                    ? Style.hoverFillFor(root.foreground, root.accent, root.urgent)
+                    : "transparent"
+
+                  Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Style.space(9)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: modelData.label
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
+
+                  MouseArea {
+                    id: suggestionMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: root.quickAddSuggestionIndex = index
+                    onClicked: root.acceptQuickAddSuggestion(index)
+                  }
+                }
+              }
+            }
+
+            Text {
+              visible: root.quickAddProjectsLoading
+                && quickAddField.text.slice(0, quickAddField.cursorPosition).match(/(?:^|\s)#[^\s]*$/)
+              width: parent.width
+              text: "Loading projects from td…"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
             }
 
             Text {

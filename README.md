@@ -40,7 +40,9 @@ td auth login
 - Middle-click refreshes; right-click opens Todoist Today.
 - Click a task to open it, or its circle to complete it.
 - Click `+` in the panel to add a task with Todoist Quick Add syntax through
-  the official `td` CLI. Task text is sent to the helper over stdin.
+  the official `td` CLI. Task text is sent to the helper over stdin. Typing
+  `p` suggests priorities, while `#` searches projects fetched through `td`;
+  use Up/Down and Tab or Enter to accept a suggestion.
 - Use `j`/`k` and Enter in the panel, or `r` (refresh), `n` (now), `o` (open), and Escape.
 
 The panel refreshes every five minutes and when opened after two minutes of

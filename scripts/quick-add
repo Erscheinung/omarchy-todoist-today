@@ -15,8 +15,8 @@ MAX_TASK_CHARS = 4096
 MAX_OUTPUT_BYTES = 256 * 1024
 
 
-def emit(ok, message=""):
-    print(json.dumps({"ok": ok, "message": message}, separators=(",", ":")))
+def emit(ok, message="", **fields):
+    print(json.dumps({"ok": ok, "message": message, **fields}, separators=(",", ":")))
     return 0 if ok else 1
 
 
@@ -33,6 +33,32 @@ def failure_message(stderr, stdout):
     return "td rejected the task"
 
 
+def run_td(executable, args, stdin_text=None):
+    try:
+        process = subprocess.run(
+            [executable, "--no-spinner", *args],
+            input=None if stdin_text is None else stdin_text.encode("utf-8"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=15,
+            env={**os.environ, "NO_COLOR": "1"},
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None, "td timed out"
+    except OSError:
+        return None, "Could not start td"
+    if len(process.stdout) > MAX_OUTPUT_BYTES or len(process.stderr) > MAX_OUTPUT_BYTES:
+        return None, "td returned too much data"
+    if process.returncode != 0:
+        return None, failure_message(process.stderr, process.stdout)
+    try:
+        response = json.loads(process.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None, "td returned an unreadable response"
+    return response, ""
+
+
 def main():
     override = os.environ.get("TODOIST_TD_BIN")
     if override:
@@ -42,6 +68,25 @@ def main():
     if not executable:
         return emit(False, "Install @doist/todoist-cli and run td auth login")
 
+    command = sys.argv[1] if len(sys.argv) > 1 else "add"
+    if command == "projects":
+        response, failure = run_td(executable, ["project", "list", "--all", "--json"])
+        if failure:
+            return emit(False, failure)
+        rows = response.get("results") if isinstance(response, dict) else None
+        if not isinstance(rows, list):
+            return emit(False, "td returned an unreadable response")
+        projects = []
+        for row in rows[:500]:
+            name = row.get("name") if isinstance(row, dict) else None
+            if isinstance(name, str):
+                name = "".join(char for char in name if char >= " " and char != "\x7f").strip()
+                if name:
+                    projects.append(name[:200])
+        return emit(True, projects=projects)
+    if command != "add":
+        return emit(False, "Unknown quick-add command")
+
     task = sys.stdin.readline(MAX_TASK_CHARS + 2)
     if len(task) > MAX_TASK_CHARS + 1:
         return emit(False, "Task is too long")
@@ -49,29 +94,11 @@ def main():
     if not task:
         return emit(False, "Enter a task")
 
-    try:
-        process = subprocess.run(
-            [executable, "--no-spinner", "task", "quickadd", "--stdin", "--json"],
-            input=task.encode("utf-8"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=15,
-            env={**os.environ, "NO_COLOR": "1"},
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return emit(False, "td timed out")
-    except OSError:
-        return emit(False, "Could not start td")
-
-    if len(process.stdout) > MAX_OUTPUT_BYTES or len(process.stderr) > MAX_OUTPUT_BYTES:
-        return emit(False, "td returned too much data")
-    if process.returncode != 0:
-        return emit(False, failure_message(process.stderr, process.stdout))
-    try:
-        response = json.loads(process.stdout.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return emit(False, "td returned an unreadable response")
+    response, failure = run_td(
+        executable, ["task", "quickadd", "--stdin", "--json"], task
+    )
+    if failure:
+        return emit(False, failure)
     if not isinstance(response, dict):
         return emit(False, "td returned an unreadable response")
     return emit(True)
