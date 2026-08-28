@@ -30,7 +30,7 @@ Panel {
   readonly property bool hasError: errorMessage !== ""
   readonly property bool needsToken: errorMessage === "Todoist token is not configured"
   readonly property var allDay: Todoist.allDayTasks(tasks)
-  readonly property var bounds: Todoist.calendarBounds(tasks)
+  readonly property var bounds: Todoist.calendarBounds(tasks, now.getHours())
   readonly property var timed: Todoist.layout(tasks, bounds.startHour)
   readonly property int hourHeight: Style.space(68)
   readonly property int timelineHeight: (bounds.endHour - bounds.startHour) * hourHeight
@@ -552,7 +552,9 @@ Panel {
             visible: root.timed.length > 0
             anchors.fill: parent
             contentWidth: width
-            contentHeight: root.timelineHeight + Style.space(20)
+            // Leave enough trailing room for the final displayed hour to sit at
+            // the top. Without it, Flickable clamps late-day scroll requests.
+            contentHeight: root.timelineHeight + Math.max(Style.space(20), height - root.hourHeight)
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             onContentHeightChanged: root.scheduleScrollToNow()

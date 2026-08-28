@@ -82,9 +82,15 @@ function timedTasks(tasks) {
   return sortTasks(tasks).filter(function(task) { return dueDate(task) !== null })
 }
 
-function calendarBounds(tasks) {
+function calendarBounds(tasks, currentHour) {
+  var nowHour = Math.max(0, Math.min(23, Number(currentHour) || 0))
   var timed = timedTasks(tasks)
-  if (timed.length === 0) return { startHour: 7, endHour: 21 }
+  if (timed.length === 0) {
+    return {
+      startHour: Math.min(7, nowHour),
+      endHour: Math.max(21, nowHour + 1)
+    }
+  }
 
   var earliest = 24 * 60
   var latest = 0
@@ -94,8 +100,8 @@ function calendarBounds(tasks) {
     latest = Math.max(latest, start + durationMinutes(timed[i]))
   }
   return {
-    startHour: Math.max(0, Math.min(7, Math.floor(earliest / 60))),
-    endHour: Math.min(24, Math.max(21, Math.ceil(latest / 60)))
+    startHour: Math.max(0, Math.min(7, nowHour, Math.floor(earliest / 60))),
+    endHour: Math.min(24, Math.max(21, nowHour + 1, Math.ceil(latest / 60)))
   }
 }
 
