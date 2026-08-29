@@ -652,6 +652,7 @@ Panel {
                     anchors.left: parent.left
                     anchors.leftMargin: Style.space(9)
                     anchors.verticalCenter: parent.verticalCenter
+                    textFormat: Text.PlainText
                     text: modelData.label
                     color: root.foreground
                     font.family: root.fontFamily
@@ -683,6 +684,7 @@ Panel {
             Text {
               visible: root.quickAddError !== ""
               width: parent.width
+              textFormat: Text.PlainText
               text: root.quickAddError
               color: root.urgent
               font.family: root.fontFamily
@@ -721,6 +723,7 @@ Panel {
               }
               Text {
                 width: parent.width - Style.space(28)
+                textFormat: Text.PlainText
                 text: root.needsToken ? "CONNECT TODOIST" : root.errorMessage
                 color: root.foreground
                 font.family: root.fontFamily
@@ -835,6 +838,7 @@ Panel {
                 anchors.right: projectLabel.left
                 anchors.rightMargin: Style.space(10)
                 anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
                 text: modelData.content
                 color: root.foreground
                 font.family: root.fontFamily
@@ -847,6 +851,7 @@ Panel {
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(12)
                 anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
                 text: modelData.project || "Inbox"
                 color: root.dim
                 font.family: root.fontFamily
@@ -999,6 +1004,7 @@ Panel {
 
                     Text {
                       width: parent.width
+                      textFormat: Text.PlainText
                       text: modelData.content
                       color: root.foreground
                       font.family: root.fontFamily
@@ -1009,6 +1015,7 @@ Panel {
 
                     Text {
                       width: parent.width
+                      textFormat: Text.PlainText
                       text: modelData.timeText + "–" + modelData.endTimeText + "  ·  " + (modelData.project || "Inbox")
                       color: root.dim
                       font.family: root.fontFamily

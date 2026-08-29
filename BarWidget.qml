@@ -85,9 +85,11 @@ BarWidget {
     hasVisualContent: true
     fixedWidth: barContent.implicitWidth + Style.space(17)
     active: root.hasError
+    // The shared Omarchy tooltip renders this string through a PlainText Text
+    // sink. Keep the task handoff as text and never route it through rich text.
     tooltipText: root.hasError
       ? "Todoist could not refresh · middle-click to retry"
-      : (root.barTask ? root.barTask.content : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today"))
+      : (root.barTask ? String(root.barTask.content || "") : root.taskCount + (root.taskCount === 1 ? " task today" : " tasks today"))
 
     Row {
       id: barContent
@@ -106,6 +108,8 @@ BarWidget {
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        // Task content is Todoist-controlled; keep the bar label plain text.
+        textFormat: Text.PlainText
         text: root.taskCount + (root.barTask ? " · " + root.truncatedTask(root.barTask.content) : "")
         color: button.active ? button.activeColor : button.foreground
         font.family: button.fontFamily
